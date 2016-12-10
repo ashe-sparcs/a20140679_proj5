@@ -154,7 +154,7 @@ public class MainActivity extends AppCompatActivity {
 
             SocketAddress socketAddress = new InetSocketAddress(dstAddress, dstPort);
             SocketChannel socket = null;
-            byte[] data = new byte[8+request.length()];
+            byte[] data = new byte[request.length()];
 
             try {
                 Log.i("buffer", "fuck");
@@ -178,7 +178,8 @@ public class MainActivity extends AppCompatActivity {
                         break;
                     }
                     buffer.flip();
-                    buffer.get(data, 0, bytesRead);
+                    buffer.get(data, 0, 8);
+                    buffer.get(data, 0, bytesRead-8);
                     response += new String(data);
                     Log.i("response", response);
                     Log.i("LOOP", "YES");

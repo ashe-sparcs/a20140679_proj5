@@ -49,14 +49,15 @@
         </RadioGroup>
         <Spinner
             android:id="@+id/shift"
-            android:layout_width="wrap_content"
+            android:layout_width="70dp"
             android:layout_height="match_parent"
             android:spinnerMode="dropdown"
-            android:entries="@array/shift"/>
+            android:entries="@array/shift"
+            android:textAlignment="center"/>
         <Button
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="choose file.."
+            android:text="find input"
             android:layout_weight="1"/>
     </LinearLayout>
     <EditText
