@@ -125,7 +125,9 @@ public class MainActivity extends AppCompatActivity {
         String dstAddress;
         int dstPort;
         byte operationID, shift;
-        String request = "aaaaaaaaaaaaaaaaaaaa";
+        //String request = "aaaaaaaaaaaaaaaaaaaa";
+        String request = "abcdeabcdeabcde";
+        String requestOriginal = "abcdeabcdeabcde";
         String response = "";
         ByteBuffer buffer;
 
@@ -138,26 +140,7 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         protected void onPreExecute() {
-            // Make message.
-            buffer = ByteBuffer.allocate(8+request.length());
-            buffer.put(operationID);
-            buffer.put(shift);
-            buffer.put(new byte[] {0x00, 0x00});
-            buffer.putInt(8+request.length());
-            buffer.put(request.getBytes());
 
-            /*
-            buffer.flip();
-            ByteBuffer dbuf = ByteBuffer.allocate(28);
-            while (buffer.hasRemaining()) {
-                short num = buffer.getShort(); // 1
-                dbuf.putShort(num);
-            }
-            byte[] bytes = dbuf.array(); // { 0, 1 }
-            for (int i = 0; i < bytes.length; i++) {
-                Log.i("buffer", String.valueOf(bytes[i]));
-            }
-    `       */
         }
 
         @Override
@@ -165,38 +148,43 @@ public class MainActivity extends AppCompatActivity {
 
             SocketAddress socketAddress = new InetSocketAddress(dstAddress, dstPort);
             SocketChannel socket = null;
-            byte[] data = new byte[request.length()];
+            byte[] data = new byte[8+request.length()];
 
-            try {
-                Log.i("buffer", "fuck");
-                Log.i("buffer", new String(buffer.array()));
-                /*
-                socket = SocketChannel.open();
-                socket.connect(socketAddress);
-                socket.finishConnect();
-                */
-                socket = SocketChannel.open(socketAddress);
+            while(response.length() < requestOriginal.length()) {
+                request = requestOriginal.substring(response.length());
+                try {
+                    buffer = ByteBuffer.allocate(8+request.length());
+                    buffer.put(operationID);
+                    buffer.put(shift);
+                    buffer.put(new byte[] {0x00, 0x00});
+                    buffer.putInt(8+request.length());
+                    buffer.put(request.getBytes());
+                    Log.i("buffer", "fuck");
+                    Log.i("buffer", new String(buffer.array()));
+                    socket = SocketChannel.open();
+                    socket.connect(socketAddress);
 
-                buffer.flip();
-                int bytesWritten = socket.write(buffer);
-                Log.i("bytesWritten", String.valueOf(bytesWritten));
-                buffer.clear();
-                Log.i("START", "YES");
-                while(true) {
-                    int bytesRead = socket.read(buffer);
-                    Log.i("bytesRead", String.valueOf(bytesRead));
-                    if (bytesRead == 0 || bytesRead == -1) {
-                        break;
-                    }
                     buffer.flip();
-                    buffer.get(data, 0, 8);
-                    buffer.get(data, 0, bytesRead-8);
-                    int realDataLength = realLength(data);
-                    response += new String(data, 0, realDataLength);
-                    Log.i("response", response);
-                    Log.i("LOOP", "YES");
-                }
-                Log.i("END", "YES");
+                    int bytesWritten = socket.write(buffer);
+                    Log.i("bytesWritten", String.valueOf(bytesWritten));
+                    buffer.clear();
+                    Log.i("START", "YES");
+                    while (true) {
+                        int bytesRead = socket.read(buffer);
+                        Log.i("bytesRead", String.valueOf(bytesRead));
+                        if (bytesRead == 0 || bytesRead == -1) {
+                            break;
+                        }
+                        buffer.flip();
+                        buffer.get(data, 0, 8);
+                        buffer.get(data, 0, bytesRead - 8);
+                        int realDataLength = realLength(data);
+                        response += new String(data, 0, realDataLength);
+                        Arrays.fill(data, (byte) 0);
+                        Log.i("response", response);
+                        Log.i("LOOP", "YES");
+                    }
+                    Log.i("END", "YES");
     /*
      * notice:143
      * inputStream.read() will block if no data return
@@ -208,21 +196,22 @@ public class MainActivity extends AppCompatActivity {
                 }
                 */
 
-            } catch (UnknownHostException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-                response = "UnknownHostException: " + e.toString();
-            } catch (IOException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-                response = "IOException: " + e.toString();
-            }finally{
-                if(socket != null){
-                    try {
-                        socket.close();
-                    } catch (IOException e) {
-                        // TODO Auto-generated catch block
-                        e.printStackTrace();
+                } catch (UnknownHostException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                    response = "UnknownHostException: " + e.toString();
+                } catch (IOException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                    response = "IOException: " + e.toString();
+                } finally {
+                    if (socket != null) {
+                        try {
+                            socket.close();
+                        } catch (IOException e) {
+                            // TODO Auto-generated catch block
+                            e.printStackTrace();
+                        }
                     }
                 }
             }
@@ -231,6 +220,7 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         protected void onPostExecute(Void result) {
+            Log.i("display", "DONE");
             textResponse.setText(response);
             super.onPostExecute(result);
         }
