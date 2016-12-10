@@ -109,6 +109,17 @@ public class MainActivity extends AppCompatActivity {
             }
         };
 
+    public int realLength(byte[] data) {
+        int size = 0;
+        while (size < data.length) {
+            if (data[size] == 0) {
+                break;
+            }
+            size++;
+        }
+        return size;
+    }
+
     public class MyClientTask extends AsyncTask<Void, Void, Void> {
 
         String dstAddress;
@@ -180,7 +191,8 @@ public class MainActivity extends AppCompatActivity {
                     buffer.flip();
                     buffer.get(data, 0, 8);
                     buffer.get(data, 0, bytesRead-8);
-                    response += new String(data);
+                    int realDataLength = realLength(data);
+                    response += new String(data, 0, realDataLength);
                     Log.i("response", response);
                     Log.i("LOOP", "YES");
                 }
