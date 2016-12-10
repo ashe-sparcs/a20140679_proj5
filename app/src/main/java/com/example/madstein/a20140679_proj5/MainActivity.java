@@ -114,7 +114,7 @@ public class MainActivity extends AppCompatActivity {
         String dstAddress;
         int dstPort;
         byte operationID, shift;
-        String request = "i love you";
+        String request = "aaaaaaaaaaaaaaaaaaaa";
         String response = "";
         ByteBuffer buffer;
 
@@ -147,9 +147,6 @@ public class MainActivity extends AppCompatActivity {
                 Log.i("buffer", String.valueOf(bytes[i]));
             }
     `       */
-            Log.i("buffer", new String(buffer.array()));
-            Toast.makeText(getApplicationContext(), new String(buffer.array()), Toast.LENGTH_SHORT)
-                    .show();
         }
 
         @Override
@@ -160,21 +157,35 @@ public class MainActivity extends AppCompatActivity {
             byte[] data = new byte[8+request.length()];
 
             try {
+                Log.i("buffer", "fuck");
+                Log.i("buffer", new String(buffer.array()));
+                /*
+                socket = SocketChannel.open();
+                socket.connect(socketAddress);
+                socket.finishConnect();
+                */
                 socket = SocketChannel.open(socketAddress);
 
                 buffer.flip();
-                socket.write(buffer);
+                int bytesWritten = socket.write(buffer);
+                Log.i("bytesWritten", String.valueOf(bytesWritten));
                 buffer.clear();
-
-                while(response.length() < request.length()) {
-                    socket.read(buffer);
+                Log.i("START", "YES");
+                while(true) {
+                    int bytesRead = socket.read(buffer);
+                    Log.i("bytesRead", String.valueOf(bytesRead));
+                    if (bytesRead == 0 || bytesRead == -1) {
+                        break;
+                    }
                     buffer.flip();
-                    buffer.get(data);
+                    buffer.get(data, 0, bytesRead);
                     response += new String(data);
                     Log.i("response", response);
+                    Log.i("LOOP", "YES");
                 }
+                Log.i("END", "YES");
     /*
-     * notice:
+     * notice:143
      * inputStream.read() will block if no data return
      */
                 /*
