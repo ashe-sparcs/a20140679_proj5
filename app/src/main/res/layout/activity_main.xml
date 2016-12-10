@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/activity_main"
     android:layout_width="match_parent"
@@ -28,6 +29,7 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal">
         <RadioGroup
+            android:id="@+id/operation"
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
             android:orientation="horizontal"
@@ -45,6 +47,12 @@
                 android:layout_height="wrap_content"
                 android:text="Decrypt" />
         </RadioGroup>
+        <Spinner
+            android:id="@+id/shift"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:spinnerMode="dropdown"
+            android:entries="@array/shift"/>
         <Button
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -55,7 +63,7 @@
         android:id="@+id/output"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Output" />
+        android:hint="Output file name" />
     <Button
         android:id="@+id/connect"
         android:layout_width="match_parent"
@@ -65,6 +73,6 @@
         android:id="@+id/response"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="here comes the test result"/>
+        android:text="Here comes the test result"/>
 
 </LinearLayout>
