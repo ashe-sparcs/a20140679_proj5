@@ -51,9 +51,20 @@
             android:text="choose file.."
             android:layout_weight="1"/>
     </LinearLayout>
+    <EditText
+        android:id="@+id/output"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Output" />
     <Button
+        android:id="@+id/connect"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="connect"/>
+    <TextView
+        android:id="@+id/response"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="here comes the test result"/>
 
 </LinearLayout>
