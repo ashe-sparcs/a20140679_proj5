@@ -22,6 +22,8 @@ import android.content.DialogInterface;
 import android.database.Cursor;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Environment;
+import android.provider.MediaStore;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -31,9 +33,15 @@ import android.widget.RadioGroup;
 import android.widget.Spinner;
 import android.widget.TextView;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.UnknownHostException;
@@ -55,7 +63,7 @@ public class MainActivity extends Activity {
 
     //Variables for original application
     TextView textResponse, textFind;
-    EditText editTextAddress, editTextPort;
+    EditText editTextAddress, editTextPort, editTextOutputFileName;
     Button buttonConnect, buttonFindInput;
     RadioGroup radioGroupOperation;
     RadioButton radioButtonEncrypt, radioButtonDecrypt;
@@ -64,7 +72,10 @@ public class MainActivity extends Activity {
     // Variables for file chooser
     private static final String TAG = "DocumentsSample";
     private static final int CODE_READ = 42;
-    String fileString = null;
+    String inputFileString = null;
+    String outputFileString = null;
+    String request = "abcdeabcdeabcde";
+    String requestOriginal = "abcdeabcdeabcde";
 
     @Override
     public void onCreate(Bundle icicle) {
@@ -83,6 +94,7 @@ public class MainActivity extends Activity {
 
         editTextAddress = (EditText)findViewById(R.id.address);
         editTextPort = (EditText)findViewById(R.id.port);
+        editTextOutputFileName = (EditText)findViewById(R.id.output);
         buttonConnect = (Button)findViewById(R.id.connect);
         textResponse = (TextView)findViewById(R.id.response);
         textFind = (TextView)findViewById(R.id.find_result);
@@ -108,6 +120,7 @@ public class MainActivity extends Activity {
                     String addressString = editTextAddress.getText().toString();
                     String portString = editTextPort.getText().toString();
                     String shiftString = spinnerShift.getSelectedItem().toString();
+                    outputFileString = editTextOutputFileName.getText().toString();
                     if (addressString.matches("") || portString.matches("")) {
                         AlertDialog.Builder dstAlert = new AlertDialog.Builder(MainActivity.this);
                         dstAlert.setPositiveButton("OK", new DialogInterface.OnClickListener() {
@@ -140,7 +153,7 @@ public class MainActivity extends Activity {
                         });
                         shiftAlert.setMessage("Select shift value");
                         shiftAlert.show();
-                    } else if (fileString == null) {
+                    } else if (inputFileString == null) {
                         AlertDialog.Builder fileAlert = new AlertDialog.Builder(MainActivity.this);
                         fileAlert.setPositiveButton("OK", new DialogInterface.OnClickListener() {
                             @Override
@@ -150,6 +163,16 @@ public class MainActivity extends Activity {
                         });
                         fileAlert.setMessage("File not found");
                         fileAlert.show();
+                    } else if (outputFileString.matches("")) {
+                        AlertDialog.Builder outFileAlert = new AlertDialog.Builder(MainActivity.this);
+                        outFileAlert.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                dialog.dismiss();
+                            }
+                        });
+                        outFileAlert.setMessage("Decide output file name");
+                        outFileAlert.show();
                     } else {
                         shiftValue = (byte)Integer.parseInt(shiftString);
                         MyClientTask myClientTask = new MyClientTask(
@@ -157,7 +180,8 @@ public class MainActivity extends Activity {
                                 Integer.parseInt(portString),
                                 operationID,
                                 shiftValue,
-                                fileString);
+                                inputFileString,
+                                outputFileString);
                         myClientTask.execute();
                     }
                 }
@@ -182,11 +206,13 @@ public class MainActivity extends Activity {
 
         final Uri uri = data != null ? data.getData() : null;
         if (uri != null) {
-            fileString = uri.getPath();
-            log("filePath=" + fileString);
+            /*
+            inputFileString = uri.getPath();
+            log("inputFilePath=" + inputFileString);
             log("isDocumentUri=" + DocumentsContract.isDocumentUri(this, uri));
+            */
         } else {
-            log("filePath=NOT FOUND");
+            log("inputFilePath=NOT FOUND");
             return;
         }
 
@@ -199,13 +225,32 @@ public class MainActivity extends Activity {
             InputStream is = null;
             try {
                 is = cr.openInputStream(uri);
-                log("read length=" + readFullyNoClose(is).length);
+                byte[] requestArr = readFullyNoClose(is);
+                log("read length=" + requestArr.length);
+                requestOriginal = new String(requestArr);
+                request = new String(requestArr);
+                Log.i("request", request);
+
             } catch (Exception e) {
                 log("FAILED TO READ", e);
             } finally {
                 closeQuietly(is);
             }
         }
+    }
+
+    private String getRealPathFromURI(Uri contentURI) {
+        String result;
+        Cursor cursor = getContentResolver().query(contentURI, null, null, null, null);
+        if (cursor == null) { // Source is Dropbox or other similar local file path
+            result = contentURI.getPath();
+        } else {
+            cursor.moveToFirst();
+            int idx = cursor.getColumnIndex(MediaStore.Files.FileColumns.DATA);
+            result = cursor.getString(idx);
+            cursor.close();
+        }
+        return result;
     }
 
     private void clearLog() {
@@ -247,23 +292,43 @@ public class MainActivity extends Activity {
         String dstAddress;
         int dstPort;
         byte operationID, shift;
-        String request = "abcdeabcdeabcde";
-        String requestOriginal = "abcdeabcdeabcde";
         String response = "";
         ByteBuffer buffer;
+        String inputFileName;
         String outputFileName;
 
-        MyClientTask(String addr, int port, byte id, byte shiftValue, String filename){
+        MyClientTask(String addr, int port, byte id, byte shiftValue, String inputFile, String outputFile){
             dstAddress = addr;
             dstPort = port;
             operationID = id;
             shift = shiftValue;
-            outputFileName = filename;
+            inputFileName = inputFileString;
+            outputFileName = outputFile;
         }
 
         @Override
         protected void onPreExecute() {
-
+            // 파일의 내용을 읽어서 TextView 에 보여주기
+            try {
+                // 파일에서 읽은 데이터를 저장하기 위해서 만든 변수
+                StringBuffer data = new StringBuffer();
+                FileInputStream fis = openFileInput(inputFileName);//파일명
+                BufferedReader buffer = new BufferedReader
+                        (new InputStreamReader(fis));
+                String str = buffer.readLine(); // 파일에서 한줄을 읽어옴
+                while (str != null) {
+                    data.append(str + "\n");
+                    str = buffer.readLine();
+                }
+                request = data.toString();
+                requestOriginal = data.toString();
+                Log.i("request", request);
+                Log.i("requestOriginal", requestOriginal);
+                buffer.close();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            super.onPreExecute();
         }
 
         @Override
@@ -345,7 +410,36 @@ public class MainActivity extends Activity {
         protected void onPostExecute(Void result) {
             Log.i("display", "DONE");
             textResponse.setText(response);
+            if (checkExternalStorage()) {
+                try {
+                    File path = Environment.getExternalStoragePublicDirectory
+                            ("");
+                    File f = new File(path, outputFileName + ".txt"); // 경로, 파일명
+                    log("outputFilePath=" + f.getAbsolutePath());
+                    FileWriter write = new FileWriter(f, false);
+                    PrintWriter out = new PrintWriter(write);
+                    out.println(response);
+                    out.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
             super.onPostExecute(result);
+        }
+    }
+
+    boolean checkExternalStorage() {
+        String state = Environment.getExternalStorageState();
+        // 외부메모리 상태
+        if (Environment.MEDIA_MOUNTED.equals(state)) {
+            // 읽기 쓰기 모두 가능
+            return true;
+        } else if (Environment.MEDIA_MOUNTED_READ_ONLY.equals(state)){
+            //읽기전용
+            return false;
+        } else {
+            // 읽기쓰기 모두 안됨
+            return false;
         }
     }
 }
