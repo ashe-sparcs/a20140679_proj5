@@ -277,6 +277,7 @@ public class MainActivity extends Activity {
         @Override
         protected void onPreExecute() {
             asyncDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+            asyncDialog.setCanceledOnTouchOutside(false);
             if (radioButtonEncrypt.isChecked()) {
                 asyncDialog.setMessage("Encrypting...");
             } else if (radioButtonDecrypt.isChecked()) {
@@ -294,7 +295,10 @@ public class MainActivity extends Activity {
             byte[] data = new byte[8 + dataLen];
 
             while (response.length() < requestOriginal.length()) {
-                request = requestOriginal.substring(response.length(), Math.min(response.length()+dataLen, requestOriginal.length()));
+                request = requestOriginal.substring(
+                        response.length(),
+                        Math.min(response.length()+dataLen, requestOriginal.length())
+                );
                 try {
                     buffer = ByteBuffer.allocate(8 + dataLen);
                     buffer.put(operationID);
@@ -319,7 +323,10 @@ public class MainActivity extends Activity {
                         buffer.get(data, 0, bytesRead - 8);
                         int realDataLength = realLength(data);
                         response += new String(data, 0, realDataLength);
-                        asyncDialog.setProgress((int)(((float)response.length() / (float)requestOriginal.length()) * 100));
+                        asyncDialog.setProgress(
+                                (int)(((float)response.length() /
+                                        (float)requestOriginal.length()) * 100)
+                        );
                         Arrays.fill(data, (byte) 0);
                     }
                 } catch (UnknownHostException e) {
