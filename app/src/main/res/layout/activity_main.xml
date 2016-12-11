@@ -75,12 +75,6 @@
         android:id="@+id/response"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Here comes the TEST result"/>
-
-    <TextView
-        android:id="@+id/find_result"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Here comes the FIND result"/>
+        android:text=""/>
 
 </LinearLayout>

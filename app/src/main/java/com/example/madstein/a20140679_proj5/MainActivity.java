@@ -58,7 +58,7 @@ import android.view.View.OnClickListener;
 public class MainActivity extends Activity {
 
     //Variables for original application
-    TextView textResponse, textFind;
+    TextView textResponse;
     EditText editTextAddress, editTextPort, editTextOutputFileName;
     Button buttonConnect, buttonFindInput;
     RadioGroup radioGroupOperation;
@@ -72,6 +72,7 @@ public class MainActivity extends Activity {
     String outputFileString = null;
     String request = "";
     String requestOriginal = "";
+    boolean isFileNotFound = true;
 
     @Override
     public void onCreate(Bundle icicle) {
@@ -93,7 +94,6 @@ public class MainActivity extends Activity {
         editTextOutputFileName = (EditText)findViewById(R.id.output);
         buttonConnect = (Button)findViewById(R.id.connect);
         textResponse = (TextView)findViewById(R.id.response);
-        textFind = (TextView)findViewById(R.id.find_result);
         radioGroupOperation = (RadioGroup) findViewById(R.id.operation);
         radioButtonEncrypt = (RadioButton) findViewById(R.id.encrypt);
         radioButtonDecrypt = (RadioButton) findViewById(R.id.decrypt);
@@ -149,6 +149,16 @@ public class MainActivity extends Activity {
                         });
                         shiftAlert.setMessage("Select shift value");
                         shiftAlert.show();
+                    } else if (isFileNotFound) {
+                        AlertDialog.Builder inputFileAlert = new AlertDialog.Builder(MainActivity.this);
+                        inputFileAlert.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                dialog.dismiss();
+                            }
+                        });
+                        inputFileAlert.setMessage("Input file not found");
+                        inputFileAlert.show();
                     } else if (outputFileString.matches("")) {
                         AlertDialog.Builder outFileAlert = new AlertDialog.Builder(MainActivity.this);
                         outFileAlert.setPositiveButton("OK", new DialogInterface.OnClickListener() {
@@ -187,13 +197,11 @@ public class MainActivity extends Activity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         final ContentResolver cr = getContentResolver();
 
-        clearLog();
-
         final Uri uri = data != null ? data.getData() : null;
         if (uri != null) {
-
+            isFileNotFound = false;
         } else {
-            log("inputFilePath=NOT FOUND");
+            isFileNotFound = true;
             return;
         }
 
@@ -201,35 +209,21 @@ public class MainActivity extends Activity {
             try {
                 cr.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
             } catch (SecurityException e) {
-                log("FAILED TO TAKE PERMISSION", e);
+                Log.d("ERROR", "FAILED TO TAKE PERMISSION");
             }
             InputStream is = null;
             try {
                 is = cr.openInputStream(uri);
                 byte[] requestArr = readFullyNoClose(is);
-                log("read length=" + requestArr.length);
                 requestOriginal = new String(requestArr);
                 request = new String(requestArr);
                 Log.i("request", request);
             } catch (Exception e) {
-                log("FAILED TO READ", e);
+                Log.d("ERROR", "FAILED TO READ");
             } finally {
             closeQuietly(is);
             }
         }
-    }
-
-    private void clearLog() {
-        textFind.setText(null);
-    }
-
-    private void log(String msg) {
-        log(msg, null);
-    }
-
-    private void log(String msg, Throwable t) {
-        Log.d(TAG, msg, t);
-        textFind.setText(textFind.getText() + "\n" + msg);
     }
 
     public static byte[] readFullyNoClose(InputStream in) throws IOException {
@@ -367,6 +361,7 @@ public class MainActivity extends Activity {
         @Override
         protected void onPostExecute(Void result) {
             asyncDialog.dismiss();
+            textResponse.setText("Complete!");
             super.onPostExecute(result);
         }
     }
