@@ -76,7 +76,6 @@ public class MainActivity extends Activity {
     String outputFileString = null;
     String request = "abcdeabcdeabcde";
     String requestOriginal = "abcdeabcdeabcde";
-    InputStream requestIS = null;
 
     @Override
     public void onCreate(Bundle icicle) {
@@ -154,16 +153,6 @@ public class MainActivity extends Activity {
                         });
                         shiftAlert.setMessage("Select shift value");
                         shiftAlert.show();
-                    } else if (requestIS == null) {
-                        AlertDialog.Builder fileAlert = new AlertDialog.Builder(MainActivity.this);
-                        fileAlert.setPositiveButton("OK", new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-                                dialog.dismiss();
-                            }
-                        });
-                        fileAlert.setMessage("File not found");
-                        fileAlert.show();
                     } else if (outputFileString.matches("")) {
                         AlertDialog.Builder outFileAlert = new AlertDialog.Builder(MainActivity.this);
                         outFileAlert.setPositiveButton("OK", new DialogInterface.OnClickListener() {
@@ -224,25 +213,18 @@ public class MainActivity extends Activity {
             }
             InputStream is = null;
             try {
-                requestIS = cr.openInputStream(uri);
+                is = cr.openInputStream(uri);
+                byte[] requestArr = readFullyNoClose(is);
+                log("read length=" + requestArr.length);
+                requestOriginal = new String(requestArr);
+                request = new String(requestArr);
+                Log.i("request", request);
             } catch (Exception e) {
                 log("FAILED TO READ", e);
+            } finally {
+            closeQuietly(is);
             }
         }
-    }
-
-    private String getRealPathFromURI(Uri contentURI) {
-        String result;
-        Cursor cursor = getContentResolver().query(contentURI, null, null, null, null);
-        if (cursor == null) { // Source is Dropbox or other similar local file path
-            result = contentURI.getPath();
-        } else {
-            cursor.moveToFirst();
-            int idx = cursor.getColumnIndex(MediaStore.Files.FileColumns.DATA);
-            result = cursor.getString(idx);
-            cursor.close();
-        }
-        return result;
     }
 
     private void clearLog() {
@@ -300,132 +282,83 @@ public class MainActivity extends Activity {
 
         @Override
         protected void onPreExecute() {
-            // 파일의 내용을 읽어서 TextView 에 보여주기
-            /*
-            try {
-                // 파일에서 읽은 데이터를 저장하기 위해서 만든 변수
-                StringBuffer data = new StringBuffer();
-                FileInputStream fis = openFileInput(inputFileName);//파일명
-                BufferedReader buffer = new BufferedReader
-                        (new InputStreamReader(fis));
-                String str = buffer.readLine(); // 파일에서 한줄을 읽어옴
-                while (str != null) {
-                    data.append(str + "\n");
-                    str = buffer.readLine();
-                }
-                request = data.toString();
-                requestOriginal = data.toString();
-                Log.i("request", request);
-                Log.i("requestOriginal", requestOriginal);
-                buffer.close();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            */
             super.onPreExecute();
         }
 
         @Override
         protected Void doInBackground(Void... arg0) {
-            while (true) {
+            SocketAddress socketAddress = new InetSocketAddress(dstAddress, dstPort);
+            SocketChannel socket = null;
+            byte[] data = new byte[8 + request.length()];
+
+            while (response.length() < requestOriginal.length()) {
+                request = requestOriginal.substring(response.length());
                 try {
-                    ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-                    byte[] buf = new byte[1024];
-                    int count;
-                    int total = 0;
+                    buffer = ByteBuffer.allocate(8 + request.length());
+                    buffer.put(operationID);
+                    buffer.put(shift);
+                    buffer.put(new byte[]{0x00, 0x00});
+                    buffer.putInt(8 + request.length());
+                    buffer.put(request.getBytes());
+                    Log.i("buffer", "fuck");
+                    Log.i("buffer", new String(buffer.array()));
+                    socket = SocketChannel.open();
+                    socket.connect(socketAddress);
+
+                    buffer.flip();
+                    int bytesWritten = socket.write(buffer);
+                    Log.i("bytesWritten", String.valueOf(bytesWritten));
+                    buffer.clear();
+                    Log.i("START", "YES");
                     while (true) {
-                        count = requestIS.read(buf);
-                        total += count;
-                        bytes.write(buf, 0, count);
+                        int bytesRead = socket.read(buffer);
+                        Log.i("bytesRead", String.valueOf(bytesRead));
+                        if (bytesRead == 0 || bytesRead == -1) {
+                            break;
+                        }
+                        buffer.flip();
+                        buffer.get(data, 0, 8);
+                        buffer.get(data, 0, bytesRead - 8);
+                        int realDataLength = realLength(data);
+                        response += new String(data, 0, realDataLength);
+                        Arrays.fill(data, (byte) 0);
+                        Log.i("response", response);
+                        Log.i("LOOP", "YES");
                     }
-                    byte[] requestArr = bytes.toByteArray();
-                    log("read length=" + requestArr.length);
-                    requestOriginal = new String(requestArr);
-                    request = new String(requestArr);
-                    Log.i("request", request);
+                    Log.i("END", "YES");
 
-                    SocketAddress socketAddress = new InetSocketAddress(dstAddress, dstPort);
-                    SocketChannel socket = null;
-                    byte[] data = new byte[8 + request.length()];
-
-                    while (response.length() < requestOriginal.length()) {
-                        request = requestOriginal.substring(response.length());
+                } catch (UnknownHostException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                    response = "UnknownHostException: " + e.toString();
+                } catch (IOException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                    response = "IOException: " + e.toString();
+                } finally {
+                    if (socket != null) {
                         try {
-                            buffer = ByteBuffer.allocate(8 + request.length());
-                            buffer.put(operationID);
-                            buffer.put(shift);
-                            buffer.put(new byte[]{0x00, 0x00});
-                            buffer.putInt(8 + request.length());
-                            buffer.put(request.getBytes());
-                            Log.i("buffer", "fuck");
-                            Log.i("buffer", new String(buffer.array()));
-                            socket = SocketChannel.open();
-                            socket.connect(socketAddress);
-
-                            buffer.flip();
-                            int bytesWritten = socket.write(buffer);
-                            Log.i("bytesWritten", String.valueOf(bytesWritten));
-                            buffer.clear();
-                            Log.i("START", "YES");
-                            while (true) {
-                                int bytesRead = socket.read(buffer);
-                                Log.i("bytesRead", String.valueOf(bytesRead));
-                                if (bytesRead == 0 || bytesRead == -1) {
-                                    break;
-                                }
-                                buffer.flip();
-                                buffer.get(data, 0, 8);
-                                buffer.get(data, 0, bytesRead - 8);
-                                int realDataLength = realLength(data);
-                                response += new String(data, 0, realDataLength);
-                                Arrays.fill(data, (byte) 0);
-                                Log.i("response", response);
-                                Log.i("LOOP", "YES");
-                            }
-                            Log.i("END", "YES");
-
-                        } catch (UnknownHostException e) {
-                            // TODO Auto-generated catch block
-                            e.printStackTrace();
-                            response = "UnknownHostException: " + e.toString();
+                            socket.close();
                         } catch (IOException e) {
                             // TODO Auto-generated catch block
                             e.printStackTrace();
-                            response = "IOException: " + e.toString();
-                        } finally {
-                            if (socket != null) {
-                                try {
-                                    socket.close();
-                                } catch (IOException e) {
-                                    // TODO Auto-generated catch block
-                                    e.printStackTrace();
-                                }
-                            }
                         }
                     }
-                    if (checkExternalStorage()) {
-                        try {
-                            File path = Environment.getExternalStoragePublicDirectory
-                                    ("");
-                            File f = new File(path, outputFileName + ".txt"); // 경로, 파일명
-                            log("outputFilePath=" + f.getAbsolutePath());
-                            FileWriter write = new FileWriter(f, false);
-                            PrintWriter out = new PrintWriter(write);
-                            out.println(response);
-                            out.close();
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-                    }
-                    response = "";
-                } catch (IOException ioe) {
-                    ioe.printStackTrace();
                 }
             }
-            try {
-                requestIS.close();
-            } catch(IOException ioe) {
-                ioe.printStackTrace();
+            if (checkExternalStorage()) {
+                try {
+                    File path = Environment.getExternalStoragePublicDirectory
+                            ("");
+                    File f = new File(path, outputFileName + ".txt"); // 경로, 파일명
+                    //log("outputFilePath=" + f.getAbsolutePath());
+                    FileWriter write = new FileWriter(f, false);
+                    PrintWriter out = new PrintWriter(write);
+                    out.println(response);
+                    out.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
             return null;
         }
