@@ -18,29 +18,23 @@
 package com.example.madstein.a20140679_proj5;
 
 import android.app.AlertDialog;
-import android.app.Dialog;
 import android.content.DialogInterface;
+import android.database.Cursor;
 import android.os.AsyncTask;
-import android.os.Environment;
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.Spinner;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
-import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
@@ -49,26 +43,10 @@ import java.util.Arrays;
 
 import android.app.Activity;
 import android.content.ContentResolver;
-import android.content.Context;
 import android.content.Intent;
-import android.database.Cursor;
 import android.net.Uri;
-import android.os.Bundle;
 import android.provider.DocumentsContract;
-import android.provider.DocumentsContract.Document;
-import android.util.Log;
-import android.view.View;
 import android.view.View.OnClickListener;
-import android.widget.Button;
-import android.widget.CheckBox;
-import android.widget.LinearLayout;
-import android.widget.ScrollView;
-import android.widget.TextView;
-
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 
 /**
  * Example that exercises client side of {@link DocumentsContract}.
@@ -86,11 +64,7 @@ public class MainActivity extends Activity {
     // Variables for file chooser
     private static final String TAG = "DocumentsSample";
     private static final int CODE_READ = 42;
-    /*
-    private static final int CODE_WRITE = 43;
-    private static final int CODE_TREE = 44;
-    private static final int CODE_RENAME = 45;
-    */
+    String fileString = null;
 
     @Override
     public void onCreate(Bundle icicle) {
@@ -145,8 +119,10 @@ public class MainActivity extends Activity {
                         dstAlert.setMessage("Enter address and port");
                         dstAlert.show();
                     } else if (operationID == 2) {
-                        AlertDialog.Builder operationAlert = new AlertDialog.Builder(MainActivity.this);
-                        operationAlert.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                        AlertDialog.Builder operationAlert =
+                                new AlertDialog.Builder(MainActivity.this);
+                        operationAlert
+                                .setPositiveButton("OK", new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface dialog, int which) {
                                 dialog.dismiss();
@@ -164,13 +140,24 @@ public class MainActivity extends Activity {
                         });
                         shiftAlert.setMessage("Select shift value");
                         shiftAlert.show();
+                    } else if (fileString == null) {
+                        AlertDialog.Builder fileAlert = new AlertDialog.Builder(MainActivity.this);
+                        fileAlert.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                dialog.dismiss();
+                            }
+                        });
+                        fileAlert.setMessage("File not found");
+                        fileAlert.show();
                     } else {
                         shiftValue = (byte)Integer.parseInt(shiftString);
                         MyClientTask myClientTask = new MyClientTask(
                                 addressString,
                                 Integer.parseInt(portString),
                                 operationID,
-                                shiftValue);
+                                shiftValue,
+                                fileString);
                         myClientTask.execute();
                     }
                 }
@@ -193,14 +180,13 @@ public class MainActivity extends Activity {
 
         clearLog();
 
-        log("resultCode=" + resultCode);
-        log("data=" + String.valueOf(data));
-
         final Uri uri = data != null ? data.getData() : null;
         if (uri != null) {
+            fileString = uri.getPath();
+            log("filePath=" + fileString);
             log("isDocumentUri=" + DocumentsContract.isDocumentUri(this, uri));
         } else {
-            log("missing URI?");
+            log("filePath=NOT FOUND");
             return;
         }
 
@@ -265,12 +251,14 @@ public class MainActivity extends Activity {
         String requestOriginal = "abcdeabcdeabcde";
         String response = "";
         ByteBuffer buffer;
+        String outputFileName;
 
-        MyClientTask(String addr, int port, byte id, byte shiftValue){
+        MyClientTask(String addr, int port, byte id, byte shiftValue, String filename){
             dstAddress = addr;
             dstPort = port;
             operationID = id;
             shift = shiftValue;
+            outputFileName = filename;
         }
 
         @Override
