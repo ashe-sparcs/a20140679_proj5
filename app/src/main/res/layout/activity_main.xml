@@ -55,6 +55,7 @@
             android:entries="@array/shift"
             android:textAlignment="center"/>
         <Button
+            android:id="@+id/find"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="find input"
@@ -74,6 +75,12 @@
         android:id="@+id/response"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Here comes the test result"/>
+        android:text="Here comes the TEST result"/>
+
+    <TextView
+        android:id="@+id/find_result"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Here comes the FIND result"/>
 
 </LinearLayout>
