@@ -290,18 +290,18 @@ public class MainActivity extends Activity {
         protected Void doInBackground(Void... arg0) {
             SocketAddress socketAddress = new InetSocketAddress(dstAddress, dstPort);
             SocketChannel socket = null;
-            byte[] data = new byte[8 + request.length()];
+            int dataLen = 4088;
+            byte[] data = new byte[8 + dataLen];
 
             while (response.length() < requestOriginal.length()) {
-                request = requestOriginal.substring(response.length());
+                request = requestOriginal.substring(response.length(), Math.min(response.length()+dataLen, requestOriginal.length()));
                 try {
-                    buffer = ByteBuffer.allocate(8 + request.length());
+                    buffer = ByteBuffer.allocate(8 + dataLen);
                     buffer.put(operationID);
                     buffer.put(shift);
                     buffer.put(new byte[]{0x00, 0x00});
                     buffer.putInt(8 + request.length());
                     buffer.put(request.getBytes());
-                    Log.i("buffer", "fuck");
                     Log.i("buffer", new String(buffer.array()));
                     socket = SocketChannel.open();
                     socket.connect(socketAddress);
