@@ -18,12 +18,11 @@
 package com.example.madstein.a20140679_proj5;
 
 import android.app.AlertDialog;
+import android.app.ProgressDialog;
 import android.content.DialogInterface;
-import android.database.Cursor;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
-import android.provider.MediaStore;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -33,14 +32,11 @@ import android.widget.RadioGroup;
 import android.widget.Spinner;
 import android.widget.TextView;
 
-import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -74,8 +70,8 @@ public class MainActivity extends Activity {
     private static final int CODE_READ = 42;
     String inputFileString = null;
     String outputFileString = null;
-    String request = "abcdeabcdeabcde";
-    String requestOriginal = "abcdeabcdeabcde";
+    String request = "";
+    String requestOriginal = "";
 
     @Override
     public void onCreate(Bundle icicle) {
@@ -195,11 +191,7 @@ public class MainActivity extends Activity {
 
         final Uri uri = data != null ? data.getData() : null;
         if (uri != null) {
-            /*
-            inputFileString = uri.getPath();
-            log("inputFilePath=" + inputFileString);
-            log("isDocumentUri=" + DocumentsContract.isDocumentUri(this, uri));
-            */
+
         } else {
             log("inputFilePath=NOT FOUND");
             return;
@@ -271,6 +263,8 @@ public class MainActivity extends Activity {
         String inputFileName;
         String outputFileName;
 
+        ProgressDialog asyncDialog = new ProgressDialog(MainActivity.this);
+
         MyClientTask(String addr, int port, byte id, byte shiftValue, String outputFile){
             dstAddress = addr;
             dstPort = port;
@@ -282,6 +276,13 @@ public class MainActivity extends Activity {
 
         @Override
         protected void onPreExecute() {
+            asyncDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+            if (radioButtonEncrypt.isChecked()) {
+                asyncDialog.setMessage("Encrypting...");
+            } else if (radioButtonDecrypt.isChecked()) {
+                asyncDialog.setMessage("Decrypting...");
+            }
+            asyncDialog.show();
             super.onPreExecute();
         }
 
@@ -306,13 +307,10 @@ public class MainActivity extends Activity {
                     socket.connect(socketAddress);
 
                     buffer.flip();
-                    int bytesWritten = socket.write(buffer);
-                    Log.i("bytesWritten", String.valueOf(bytesWritten));
+                    socket.write(buffer);
                     buffer.clear();
-                    Log.i("START", "YES");
                     while (true) {
                         int bytesRead = socket.read(buffer);
-                        Log.i("bytesRead", String.valueOf(bytesRead));
                         if (bytesRead == 0 || bytesRead == -1) {
                             break;
                         }
@@ -321,12 +319,9 @@ public class MainActivity extends Activity {
                         buffer.get(data, 0, bytesRead - 8);
                         int realDataLength = realLength(data);
                         response += new String(data, 0, realDataLength);
+                        asyncDialog.setProgress((int)(((float)response.length() / (float)requestOriginal.length()) * 100));
                         Arrays.fill(data, (byte) 0);
-                        Log.i("response", response);
-                        Log.i("LOOP", "YES");
                     }
-                    Log.i("END", "YES");
-
                 } catch (UnknownHostException e) {
                     // TODO Auto-generated catch block
                     e.printStackTrace();
@@ -351,7 +346,6 @@ public class MainActivity extends Activity {
                     File path = Environment.getExternalStoragePublicDirectory
                             ("");
                     File f = new File(path, outputFileName + ".txt"); // 경로, 파일명
-                    //log("outputFilePath=" + f.getAbsolutePath());
                     FileWriter write = new FileWriter(f, false);
                     PrintWriter out = new PrintWriter(write);
                     out.println(response);
@@ -365,8 +359,7 @@ public class MainActivity extends Activity {
 
         @Override
         protected void onPostExecute(Void result) {
-            Log.i("display", "DONE");
-            //textResponse.setText(response);
+            asyncDialog.dismiss();
             super.onPostExecute(result);
         }
     }
